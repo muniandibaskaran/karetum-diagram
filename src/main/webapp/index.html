@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>KareTum Diagram - AI-Powered Diagram Tool</title>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="icon" href="favicon-karetum.svg" type="image/svg+xml">
+    <link rel="stylesheet" type="text/css" href="styles/grapheditor.css">
+    <script src="js/bootstrap.js"></script>
+    <style>
+        :root {
+            --karetum-bg: #f5f5f5;
+            --karetum-header-bg: #e8e8e8;
+            --karetum-border: #d4d4d4;
+            --karetum-accent: #0078d4;
+            --karetum-accent2: #005a9e;
+            --karetum-text: #333333;
+            --karetum-text-dim: #666666;
+            --karetum-msg-user: #cce4f7;
+            --karetum-msg-bot: #ffffff;
+            --karetum-input-bg: #ffffff;
+            --karetum-glow: rgba(0, 120, 212, 0.3);
+        }
+        #karetum-chat-panel {
+            position: fixed;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 360px;
+            max-height: 100vh;
+            background: var(--karetum-bg);
+            z-index: 50;
+            display: none;
+            flex-direction: column;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--karetum-text);
+            border-left: 1px solid var(--karetum-border);
+            box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+        #karetum-chat-panel.visible {
+            display: flex;
+            animation: karetum-slideIn 0.3s cubic-bezier(.4,0,.2,1);
+        }
+        body.geDarkMode #karetum-chat-panel {
+            background: var(--karetum-bg);
+            border-left-color: var(--karetum-border);
+            box-shadow: -2px 0 8px rgba(0,0,0,0.4);
+        }
+        @keyframes karetum-slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+        #karetum-chat-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -1px;
+            width: 2px;
+            height: 100%;
+            background: linear-gradient(180deg, transparent 0%, var(--karetum-accent) 30%, var(--karetum-accent2) 70%, transparent 100%);
+            animation: karetum-glowMove 4s ease-in-out infinite;
+            z-index: 1;
+            pointer-events: none;
+        }
+        #karetum-chat-panel::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -15px;
+            width: 15px;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, var(--karetum-glow));
+            animation: karetum-glowPulse 4s ease-in-out infinite;
+            z-index: 0;
+            pointer-events: none;
+            filter: blur(6px);
+        }
+        @keyframes karetum-glowMove {
+            0% { background-position: 0 0; }
+            50% { background-position: 0 100%; }
+            100% { background-position: 0 0; }
+        }
+        @keyframes karetum-glowPulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        .karetum-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: var(--karetum-header-bg);
+            border-bottom: 1px solid var(--karetum-border);
+            position: relative;
+            z-index: 2;
+            min-height: 40px;
+            flex-shrink: 0;
+        }
+        .karetum-header-left { display: flex; align-items: center; gap: 8px; }
+        .karetum-header span { font-weight: 600; font-size: 12px; color: var(--karetum-accent); letter-spacing: 0.5px; }
+        .karetum-settings-btn {
+            background: none;
+            border: none;
+            color: var(--karetum-text-dim);
+            font-size: 14px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .karetum-settings-btn:hover { background: var(--karetum-border); color: var(--karetum-accent); }
+        .karetum-close {
+            background: none;
+            border: none;
+            color: var(--karetum-text-dim);
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            line-height: 1;
+        }
+        .karetum-close:hover { color: var(--karetum-accent); transform: rotate(90deg); }
+        .karetum-messages {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            z-index: 2;
+        }
+        .karetum-msg {
+            padding: 10px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+            max-width: 88%;
+            word-break: break-word;
+            white-space: pre-wrap;
+            animation: karetum-msgFade 0.2s ease;
+        }
+        @keyframes karetum-msgFade {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .karetum-msg.user {
+            background: var(--karetum-msg-user);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .karetum-msg.bot {
+            background: var(--karetum-msg-bot);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--karetum-border);
+        }
+        .karetum-msg.bot.thinking { border-left: 3px solid var(--karetum-accent); }
+        .karetum-welcome { text-align: center; padding: 20px 12px; color: var(--karetum-text-dim); }
+        .karetum-welcome h3 { color: var(--karetum-accent); margin: 0 0 8px 0; font-size: 16px; }
+        .karetum-welcome p { margin: 0 0 16px 0; font-size: 13px; }
+        .karetum-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+        .karetum-tag {
+            background: var(--karetum-header-bg);
+            border: 1px solid var(--karetum-border);
+            color: var(--karetum-accent);
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .karetum-tag:hover { background: var(--karetum-accent); color: #fff; border-color: var(--karetum-accent); }
+        .karetum-input-area {
+            padding: 10px 12px;
+            background: var(--karetum-header-bg);
+            border-top: 1px solid var(--karetum-border);
+            position: relative;
+            z-index: 2;
+            flex-shrink: 0;
+        }
+        .karetum-input-row { display: flex; gap: 8px; align-items: flex-end; }
+        #karetum-input {
+            flex: 1;
+            background: var(--karetum-input-bg);
+            border: 1px solid var(--karetum-border);
+            border-radius: 10px;
+            padding: 8px 12px;
+            color: var(--karetum-text);
+            font-size: 13px;
+            resize: none;
+            font-family: inherit;
+            line-height: 1.4;
+            transition: border-color 0.2s;
+        }
+        #karetum-input:focus { outline: none; border-color: var(--karetum-accent); box-shadow: 0 0 0 2px var(--karetum-glow); }
+        #karetum-input::placeholder { color: var(--karetum-text-dim); }
+        .karetum-send {
+            background: var(--karetum-accent);
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+            cursor: pointer;
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .karetum-send:hover { background: var(--karetum-accent2); transform: scale(1.05); }
+        .karetum-actions { display: flex; gap: 6px; margin-top: 6px; }
+        .karetum-act {
+            background: transparent;
+            border: 1px solid var(--karetum-border);
+            color: var(--karetum-text-dim);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .karetum-act:hover { background: var(--karetum-border); color: var(--karetum-text); }
+        .karetum-dots { display: flex; gap: 5px; padding: 10px 12px; }
+        .karetum-dot {
+            width: 7px;
+            height: 7px;
+            background: var(--karetum-accent);
+            border-radius: 50%;
+            animation: kbounce 1.4s infinite ease-in-out;
+        }
+        .karetum-dot:nth-child(1) { animation-delay: -.32s; }
+        .karetum-dot:nth-child(2) { animation-delay: -.16s; }
+        @keyframes kbounce { 0%,80%,100% { transform: scale(0); } 40% { transform: scale(1); } }
+        .karetum-settings-panel {
+            display: none;
+            padding: 10px 12px;
+            background: var(--karetum-header-bg);
+            border-bottom: 1px solid var(--karetum-border);
+            font-size: 12px;
+            position: relative;
+            z-index: 2;
+            max-height: 40%;
+            min-height: 0;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .karetum-settings-panel.visible { display: block; }
+        .karetum-settings-panel label { display: block; color: var(--karetum-text-dim); margin-bottom: 3px; margin-top: 6px; }
+        .karetum-settings-panel select, .karetum-settings-panel input {
+            width: 100%;
+            background: var(--karetum-input-bg);
+            border: 1px solid var(--karetum-border);
+            border-radius: 4px;
+            padding: 5px 8px;
+            color: var(--karetum-text);
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        .karetum-settings-panel select:focus, .karetum-settings-panel input:focus { outline: none; border-color: var(--karetum-accent); }
+        .karetum-provider-status {
+            font-size: 11px;
+            padding: 3px 6px;
+            border-radius: 3px;
+            margin-bottom: 6px;
+            display: inline-block;
+        }
+        .karetum-provider-status.ok { background: rgba(107,142,35,0.2); color: #6b8e23; }
+        .karetum-provider-status.err { background: rgba(200,0,0,0.15); color: #cc0000; }
+        .karetum-provider-status.loading { background: rgba(0,120,212,0.15); color: var(--karetum-accent); }
+        #karetum-floating-btn {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            width: 48px;
+            height: 48px;
+            background: var(--karetum-accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 9999;
+            box-shadow: 0 2px 12px rgba(0,120,212,0.35);
+            color: #fff;
+            transition: all 0.3s ease;
+        }
+        #karetum-floating-btn:hover { transform: scale(1.1); box-shadow: 0 4px 20px rgba(0,120,212,0.5); }
+        #karetum-floating-btn.hidden { display: none !important; }
+        #karetum-floating-btn::after {
+            content: 'AI Chat';
+            position: absolute;
+            right: 58px;
+            background: var(--karetum-header-bg);
+            color: var(--karetum-text);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            border: 1px solid var(--karetum-border);
+        }
+        #karetum-floating-btn:hover::after { opacity: 1; }
+        .karetum-messages::-webkit-scrollbar { width: 5px; }
+        .karetum-messages::-webkit-scrollbar-track { background: transparent; }
+        .karetum-messages::-webkit-scrollbar-thumb { background: var(--karetum-border); border-radius: 3px; }
+        .karetum-messages::-webkit-scrollbar-thumb:hover { background: var(--karetum-accent); }
+    </style>
+    <style>
+        body > div > a[href*="github.com/jgraph"] { display: none !important; }
+        body > div > a[href*="github.com/jgraph"] + * { display: none !important; }
+    </style>
+</head>
+<body class="geEditor geClassic">
+<div id="geInfo">
+    <div class="geBlock">
+        <h1>KareTum Diagram - AI-Powered Diagram Tool</h1>
+        <p>Create flowcharts, sequence diagrams, UML, ER diagrams and more with AI.</p>
+        <h2 id="geStatus">Loading KareTum Diagram... <img src="images/spin.gif"/></h2>
+        <p>Click the AI button on the bottom-right to start.</p>
+    </div>
+</div>
+<script src="js/main.js"></script>
+<script>
+(function() {
+    var CONFIG_KEY = 'karetum-diagram-config';
+    var CONFIG_VERSION = 21;
+    var DEFAULT_CONFIG = {
+        provider: 'gemini',
+        ollamaUrl: 'http://localhost:11434',
+        ollamaModel: 'qwen3-coder-128k:latest',
+        geminiModel: 'gemini-3.6-flash',
+        geminiApiKey: '',
+        openaiModel: 'gpt-4o',
+        openaiApiKey: '',
+        anthropicModel: 'claude-sonnet-4-5',
+        anthropicApiKey: '',
+        customEndpoint: '',
+        customApiKey: '',
+        customModel: ''
+    };
+    function loadConfig() {
+        try {
+            var c = JSON.parse(localStorage.getItem(CONFIG_KEY));
+            if (!c || c._v !== CONFIG_VERSION) { c = Object.assign({}, DEFAULT_CONFIG); c._v = CONFIG_VERSION; saveConfig(c); }
+            return c;
+        } catch(e) { return Object.assign({}, DEFAULT_CONFIG); }
+    }
+    function saveConfig(c) { localStorage.setItem(CONFIG_KEY, JSON.stringify(c)); }
+    var config = loadConfig();
+
+    function applyTheme(isDark) {
+        var root = document.documentElement;
+        if (isDark) {
+            root.style.setProperty('--karetum-bg', '#1e1e1e');
+            root.style.setProperty('--karetum-header-bg', '#252526');
+            root.style.setProperty('--karetum-border', '#3c3c3c');
+            root.style.setProperty('--karetum-accent', '#0078d4');
+            root.style.setProperty('--karetum-accent2', '#005a9e');
+            root.style.setProperty('--karetum-text', '#cccccc');
+            root.style.setProperty('--karetum-text-dim', '#888888');
+            root.style.setProperty('--karetum-msg-user', '#264f78');
+            root.style.setProperty('--karetum-msg-bot', '#2d2d2d');
+            root.style.setProperty('--karetum-input-bg', '#3c3c3c');
+            root.style.setProperty('--karetum-glow', 'rgba(0, 120, 212, 0.3)');
+        } else {
+            root.style.setProperty('--karetum-bg', '#f5f5f5');
+            root.style.setProperty('--karetum-header-bg', '#e8e8e8');
+            root.style.setProperty('--karetum-border', '#d4d4d4');
+            root.style.setProperty('--karetum-accent', '#0078d4');
+            root.style.setProperty('--karetum-accent2', '#005a9e');
+            root.style.setProperty('--karetum-text', '#333333');
+            root.style.setProperty('--karetum-text-dim', '#666666');
+            root.style.setProperty('--karetum-msg-user', '#cce4f7');
+            root.style.setProperty('--karetum-msg-bot', '#ffffff');
+            root.style.setProperty('--karetum-input-bg', '#ffffff');
+            root.style.setProperty('--karetum-glow', 'rgba(0, 120, 212, 0.2)');
+        }
+    }
+
+    var panel = document.createElement('div');
+    panel.id = 'karetum-chat-panel';
+    panel.innerHTML =
+        '<div class="karetum-header">' +
+            '<div class="karetum-header-left">' +
+                '<span id="karetum-provider-label">' + config.provider.toUpperCase() + '</span>' +
+                '<button class="karetum-settings-btn" id="karetum-settings-btn">&#9881;</button>' +
+            '</div>' +
+            '<button class="karetum-close" id="karetum-close-btn">&times;</button>' +
+        '</div>' +
+        '<div class="karetum-settings-panel" id="karetum-settings-panel">' +
+            '<label>AI Provider</label>' +
+            '<select id="karetum-provider-select">' +
+                '<option value="gemini"' + (config.provider === 'gemini' ? ' selected' : '') + '>Google Gemini</option>' +
+                '<option value="openai"' + (config.provider === 'openai' ? ' selected' : '') + '>OpenAI (GPT)</option>' +
+                '<option value="anthropic"' + (config.provider === 'anthropic' ? ' selected' : '') + '>Anthropic (Claude)</option>' +
+                '<option value="ollama"' + (config.provider === 'ollama' ? ' selected' : '') + '>Ollama (Local)</option>' +
+                '<option value="custom"' + (config.provider === 'custom' ? ' selected' : '') + '>Custom Endpoint (OpenAI-compatible)</option>' +
+            '</select>' +
+            '<div id="karetum-ollama-settings"' + (config.provider !== 'ollama' ? ' style="display:none"' : '') + '>' +
+                '<label>Ollama URL</label>' +
+                '<input id="karetum-ollama-url" value="' + config.ollamaUrl + '">' +
+                '<label>Model</label>' +
+                '<select id="karetum-ollama-model">' +
+                    '<option value="qwen3-coder-128k:latest"' + (config.ollamaModel === 'qwen3-coder-128k:latest' ? ' selected' : '') + '>qwen3-coder-128k (5GB, best XML)</option>' +
+                    '<option value="qwen3:8b"' + (config.ollamaModel === 'qwen3:8b' ? ' selected' : '') + '>qwen3:8b (5GB)</option>' +
+                    '<option value="freehuntx/qwen3-coder:8b"' + (config.ollamaModel === 'freehuntx/qwen3-coder:8b' ? ' selected' : '') + '>qwen3-coder:8b (5GB)</option>' +
+                    '<option value="qwen2.5-coder:14b"' + (config.ollamaModel === 'qwen2.5-coder:14b' ? ' selected' : '') + '>qwen2.5-coder:14b (9GB, slow)</option>' +
+                    '<option value="qwen3:4b"' + (config.ollamaModel === 'qwen3:4b' ? ' selected' : '') + '>qwen3:4b (2.5GB)</option>' +
+                    '<option value="qwen2.5-coder:3b"' + (config.ollamaModel === 'qwen2.5-coder:3b' ? ' selected' : '') + '>qwen2.5-coder:3b (2GB)</option>' +
+                    '<option value="llama3.2:latest"' + (config.ollamaModel === 'llama3.2:latest' ? ' selected' : '') + '>llama3.2 (2GB, basic)</option>' +
+                '</select>' +
+                '<span class="karetum-provider-status loading" id="karetum-ollama-status">Checking...</span>' +
+            '</div>' +
+            '<div id="karetum-gemini-settings"' + (config.provider !== 'gemini' ? ' style="display:none"' : '') + '>' +
+                '<label>API Key (optional)</label>' +
+                '<input id="karetum-gemini-apikey" type="password" value="' + (config.geminiApiKey || '') + '" placeholder="Leave blank to use server GEMINI_API_KEY">' +
+                '<label>Model</label>' +
+                '<select id="karetum-gemini-model">' +
+                    '<option value="gemini-3.6-flash"' + (config.geminiModel === 'gemini-3.6-flash' ? ' selected' : '') + '>gemini-3.6-flash (default)</option>' +
+                    '<option value="gemini-3.6-flash-lite"' + (config.geminiModel === 'gemini-3.6-flash-lite' ? ' selected' : '') + '>gemini-3.6-flash-lite (faster)</option>' +
+                    '<option value="gemini-3.6-pro"' + (config.geminiModel === 'gemini-3.6-pro' ? ' selected' : '') + '>gemini-3.6-pro (slowest)</option>' +
+                '</select>' +
+            '</div>' +
+            '<div id="karetum-openai-settings"' + (config.provider !== 'openai' ? ' style="display:none"' : '') + '>' +
+                '<label>API Key (optional)</label>' +
+                '<input id="karetum-openai-apikey" type="password" value="' + (config.openaiApiKey || '') + '" placeholder="Leave blank to use server OPENAI_API_KEY">' +
+                '<label>Model</label>' +
+                '<input id="karetum-openai-model" value="' + (config.openaiModel || '') + '" placeholder="gpt-4o">' +
+            '</div>' +
+            '<div id="karetum-anthropic-settings"' + (config.provider !== 'anthropic' ? ' style="display:none"' : '') + '>' +
+                '<label>API Key (optional)</label>' +
+                '<input id="karetum-anthropic-apikey" type="password" value="' + (config.anthropicApiKey || '') + '" placeholder="Leave blank to use server ANTHROPIC_API_KEY">' +
+                '<label>Model</label>' +
+                '<input id="karetum-anthropic-model" value="' + (config.anthropicModel || '') + '" placeholder="claude-sonnet-4-5">' +
+            '</div>' +
+            '<div id="karetum-custom-settings"' + (config.provider !== 'custom' ? ' style="display:none"' : '') + '>' +
+                '<label>Endpoint URL</label>' +
+                '<input id="karetum-custom-endpoint" value="' + (config.customEndpoint || '') + '" placeholder="https://api.openai.com/v1/chat/completions">' +
+                '<label>API Key</label>' +
+                '<input id="karetum-custom-apikey" type="password" value="' + (config.customApiKey || '') + '" placeholder="sk-...">' +
+                '<label>Model</label>' +
+                '<input id="karetum-custom-model" value="' + (config.customModel || '') + '" placeholder="gpt-4o">' +
+            '</div>' +
+            '<button id="karetum-save-settings" style="width:100%;background:#00d9ff;color:#000;border:none;padding:8px;border-radius:6px;font-weight:600;cursor:pointer">Save & Apply</button>' +
+        '</div>' +
+        '<div class="karetum-messages" id="karetum-chat-messages">' +
+            '<div class="karetum-welcome"><h3>Welcome to KareTum Diagram</h3><p>Describe the diagram you want, and AI will create it.</p>' +
+            '<div class="karetum-tags">' +
+                '<button class="karetum-tag" data-prompt="Create a flowchart for user login process">Flowchart</button>' +
+                '<button class="karetum-tag" data-prompt="Create a sequence diagram for API calls">Sequence</button>' +
+                '<button class="karetum-tag" data-prompt="Create a network diagram for a web app">Network</button>' +
+                '<button class="karetum-tag" data-prompt="Create an ER diagram for a blog database">ER Diagram</button>' +
+                '<button class="karetum-tag" data-prompt="Create a medallion architecture diagram">Medallion</button>' +
+                '<button class="karetum-tag" data-prompt="Create a UML class diagram for e-commerce">UML Class</button>' +
+            '</div></div>' +
+        '</div>' +
+        '<div class="karetum-input-area"><div class="karetum-input-row">' +
+            '<textarea id="karetum-input" placeholder="Describe your diagram..." rows="2"></textarea>' +
+            '<button class="karetum-send" id="karetum-send-btn">&gt;</button></div>' +
+            '<div class="karetum-actions">' +
+                '<button class="karetum-act" id="karetum-export-xml">Export XML</button>' +
+                '<button class="karetum-act" id="karetum-clear-btn">Clear Chat</button></div></div>';
+    document.body.appendChild(panel);
+
+    var btn = document.createElement('div');
+    btn.id = 'karetum-floating-btn';
+    btn.innerHTML = '<svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="karetum-ai-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#6e8efb"/><stop offset="40%" stop-color="#a777e3"/><stop offset="100%" stop-color="#e684ae"/></linearGradient></defs><path d="M50 5 L62 38 L95 50 L62 62 L50 95 L38 62 L5 50 L38 38 Z" fill="url(#karetum-ai-grad)"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="8s" repeatCount="indefinite"/></path><path d="M50 20 L57 43 L80 50 L57 57 L50 80 L43 57 L20 50 L43 43 Z" fill="rgba(255,255,255,0.25)"/></svg>';
+    btn.title = 'AI Chat';
+    document.body.appendChild(btn);
+
+    document.getElementById('karetum-settings-btn').onclick = function() {
+        document.getElementById('karetum-settings-panel').classList.toggle('visible');
+    };
+    document.getElementById('karetum-provider-select').onchange = function() {
+        var v = this.value;
+        document.getElementById('karetum-ollama-settings').style.display = v === 'ollama' ? 'block' : 'none';
+        document.getElementById('karetum-gemini-settings').style.display = v === 'gemini' ? 'block' : 'none';
+        document.getElementById('karetum-openai-settings').style.display = v === 'openai' ? 'block' : 'none';
+        document.getElementById('karetum-anthropic-settings').style.display = v === 'anthropic' ? 'block' : 'none';
+        document.getElementById('karetum-custom-settings').style.display = v === 'custom' ? 'block' : 'none';
+    };
+    document.getElementById('karetum-save-settings').onclick = function() {
+        config.provider = document.getElementById('karetum-provider-select').value;
+        config.ollamaUrl = document.getElementById('karetum-ollama-url').value.replace(/\/+$/, '');
+        config.ollamaModel = document.getElementById('karetum-ollama-model').value;
+        config.geminiModel = document.getElementById('karetum-gemini-model').value;
+        config.geminiApiKey = document.getElementById('karetum-gemini-apikey').value;
+        config.openaiModel = document.getElementById('karetum-openai-model').value;
+        config.openaiApiKey = document.getElementById('karetum-openai-apikey').value;
+        config.anthropicModel = document.getElementById('karetum-anthropic-model').value;
+        config.anthropicApiKey = document.getElementById('karetum-anthropic-apikey').value;
+        config.customEndpoint = document.getElementById('karetum-custom-endpoint').value.replace(/\/+$/, '');
+        config.customApiKey = document.getElementById('karetum-custom-apikey').value;
+        config.customModel = document.getElementById('karetum-custom-model').value;
+        saveConfig(config);
+        document.getElementById('karetum-provider-label').textContent = config.provider.toUpperCase();
+        document.getElementById('karetum-settings-panel').classList.remove('visible');
+    };
+
+    function setSelectValue(el, val) {
+        if (!el) return;
+        if (el.tagName === 'SELECT') {
+            var found = false;
+            for (var i = 0; i < el.options.length; i++) {
+                if (el.options[i].value === val) { found = true; break; }
+            }
+            if (!found) {
+                var o = document.createElement('option');
+                o.value = val; o.textContent = val + ' (server)';
+                el.appendChild(o);
+            }
+            el.value = val;
+        } else {
+            el.value = val;
+        }
+    }
+    // Adopt server-side defaults from /api/config for values the user hasn't customized
+    function applyServerConfig() {
+        fetch('/api/config').then(function(r) { return r.json(); }).then(function(s) {
+            if (!s) return;
+            var changed = false;
+            function adopt(key, sv, id) {
+                if (!sv) return;
+                var isDefault = !config[key] || config[key] === DEFAULT_CONFIG[key];
+                if (isDefault && config[key] !== sv) {
+                    config[key] = sv;
+                    changed = true;
+                    setSelectValue(document.getElementById(id), sv);
+                }
+            }
+            adopt('geminiModel', s.geminiModel, 'karetum-gemini-model');
+            adopt('openaiModel', s.openaiModel, 'karetum-openai-model');
+            adopt('anthropicModel', s.anthropicModel, 'karetum-anthropic-model');
+            adopt('ollamaUrl', s.ollamaUrl, 'karetum-ollama-url');
+            adopt('ollamaModel', s.ollamaModel, 'karetum-ollama-model');
+            if (changed) { saveConfig(config); checkOllama(); }
+        }).catch(function() {});
+    }
+
+    function checkOllama() {
+        var el = document.getElementById('karetum-ollama-status');
+        if (!el) return;
+        el.textContent = 'Checking...';
+        el.className = 'karetum-provider-status loading';
+        fetch(config.ollamaUrl + '/api/tags')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                var names = (d.models || []).map(function(m) { return m.name; });
+                el.textContent = 'Connected (' + names.length + ' models)';
+                el.className = 'karetum-provider-status ok';
+            })
+            .catch(function() {
+                el.textContent = 'Not running - start Ollama first';
+                el.className = 'karetum-provider-status err';
+            });
+    }
+    applyServerConfig();
+    checkOllama();
+
+    var SYSTEM_PROMPT = [
+        'You are KareTum Diagram AI. Generate valid draw.io XML using mxGraphModel format.',
+        'If CURRENT DIAGRAM is provided, modify/enhance it. If empty, create new.',
+        '',
+        'OUTPUT: ONLY the mxGraphModel XML. No markdown, no fences, no explanations.',
+        '',
+        '=== BEAUTIFUL DIAGRAM RULES ===',
+        'EVERY diagram must look professional and polished. Follow these rules strictly:',
+        '',
+        '1. EDGES: Always use orthogonal routing with rounded corners:',
+        '   edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;',
+        '   strokeWidth=2;strokeColor=#666666;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;',
+        '   Always set source and target IDs on edges.',
+        '',
+        '2. SHAPES: Always include shadow and polished styling:',
+        '   shadow=1;whiteSpace=wrap;html=1;fontSize=13;fontStyle=0;',
+        '',
+        '3. SPACING: Minimum 250px horizontal, 150px vertical between shapes.',
+        '   Never overlap shapes or edges.',
+        '',
+        '4. COLORS: Use consistent professional color palette (see below).',
+        '',
+        '5. LABELS: Add labels on edges when meaningful (e.g., "Yes", "No", "HTTP", "data flow").',
+        '   Use: value="label" on the mxCell edge element.',
+        '',
+        '=== XML STRUCTURE (COPY THIS EXACTLY) ===',
+        '<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827">',
+        '<root>',
+        '<mxCell id="0"/>',
+        '<mxCell id="1" parent="0"/>',
+        '',
+        '<mxCell id="2" value="Start" style="ellipse;whiteSpace=wrap;html=1;shadow=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1a4d2e;fontSize=14;fontStyle=1;aspect=fixed;" vertex="1" parent="1">',
+        '<mxGeometry x="475" y="40" width="120" height="80" as="geometry"/>',
+        '</mxCell>',
+        '',
+        '<mxCell id="3" value="Process A" style="rounded=1;whiteSpace=wrap;html=1;shadow=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1e3a5f;fontSize=13;arcSize=20;" vertex="1" parent="1">',
+        '<mxGeometry x="425" y="180" width="220" height="80" as="geometry"/>',
+        '</mxCell>',
+        '',
+        '<mxCell id="4" value="Decision?" style="rhombus;whiteSpace=wrap;html=1;shadow=1;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#7a5c00;fontSize=13;fontStyle=1;aspect=fixed;" vertex="1" parent="1">',
+        '<mxGeometry x="465" y="320" width="140" height="140" as="geometry"/>',
+        '</mxCell>',
+        '',
+        '<mxCell id="5" value="Process B" style="rounded=1;whiteSpace=wrap;html=1;shadow=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1e3a5f;fontSize=13;arcSize=20;" vertex="1" parent="1">',
+        '<mxGeometry x="200" y="340" width="200" height="80" as="geometry"/>',
+        '</mxCell>',
+        '',
+        '<mxCell id="6" value="Process C" style="rounded=1;whiteSpace=wrap;html=1;shadow=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1a4d2e;fontSize=13;arcSize=20;" vertex="1" parent="1">',
+        '<mxGeometry x="680" y="340" width="200" height="80" as="geometry"/>',
+        '</mxCell>',
+        '',
+        '<mxCell id="7" value="End" style="ellipse;whiteSpace=wrap;html=1;shadow=1;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#6b1c1c;fontSize=14;fontStyle=1;aspect=fixed;" vertex="1" parent="1">',
+        '<mxGeometry x="475" y="520" width="120" height="80" as="geometry"/>',
+        '</mxCell>',
+        '',
+        '<mxCell id="10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#666666;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="2" target="3" parent="1">',
+        '<mxGeometry relative="1" as="geometry"/>',
+        '</mxCell>',
+        '',
+        '<mxCell id="11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#666666;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="3" target="4" parent="1">',
+        '<mxGeometry relative="1" as="geometry"/>',
+        '</mxCell>',
+        '',
+        '<mxCell id="12" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#82b366;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="4" target="5" parent="1">',
+        '<mxGeometry relative="1" as="geometry"/>',
+        '</mxCell>',
+        '',
+        '<mxCell id="13" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#b85450;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="4" target="6" parent="1">',
+        '<mxGeometry relative="1" as="geometry"/>',
+        '</mxCell>',
+        '',
+        '<mxCell id="14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#666666;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="5" target="7" parent="1">',
+        '<mxGeometry relative="1" as="geometry"/>',
+        '</mxCell>',
+        '',
+        '<mxCell id="15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#666666;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="6" target="7" parent="1">',
+        '<mxGeometry relative="1" as="geometry"/>',
+        '</mxCell>',
+        '',
+        '</root>',
+        '</mxGraphModel>',
+        '',
+        '=== EDGE STYLE TEMPLATE ===',
+        'Use this EXACT style for ALL edges (copy-paste):',
+        'edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#666666;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;',
+        'For horizontal edges use: exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;',
+        'For left edges use: exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;',
+        'For right edges use: exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;',
+        '',
+        '=== SMART SHAPE SELECTION ===',
+        'Choose shapes based on what they represent:',
+        '',
+        'DATABASES & STORAGE:',
+        '  Database/DB/SQL/Table/Data Warehouse/Lake => shape=cylinder3;whiteSpace=wrap;html=1;shadow=1;fillColor=#dae8fc;strokeColor=#6c8ebf;',
+        '  Disk/Storage/Volume => shape=cylinder3;whiteSpace=wrap;html=1;shadow=1;size=15;',
+        '',
+        'CLOUD & NETWORK:',
+        '  Cloud/Internet/CDN/API Gateway => shape=cloud;whiteSpace=wrap;html=1;shadow=1;fillColor=#e1d5e7;strokeColor=#9673a6;',
+        '  Server/Host/Machine => rounded=1;whiteSpace=wrap;html=1;shadow=1;fillColor=#dae8fc;strokeColor=#6c8ebf;',
+        '  Firewall/Security => shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;shadow=1;fillColor=#f8cecc;strokeColor=#b85450;',
+        '  Load Balancer => shape=trapezoid;perimeter=trapezoidPerimeter;whiteSpace=wrap;html=1;shadow=1;fillColor=#fff2cc;strokeColor=#d6b656;',
+        '  Router/Switch => rhombus;whiteSpace=wrap;html=1;shadow=1;fillColor=#fff2cc;strokeColor=#d6b656;',
+        '',
+        'PROCESSES & DECISIONS:',
+        '  Process/Step/Task/Action/Activity => rounded=1;whiteSpace=wrap;html=1;shadow=1;arcSize=20;',
+        '  Decision/Question/Condition/Gateway => rhombus;whiteSpace=wrap;html=1;shadow=1;aspect=fixed;',
+        '  Start/End/Begin/Stop/Terminal => ellipse;whiteSpace=wrap;html=1;shadow=1;aspect=fixed;',
+        '  Delay/Wait/Timer => shape=partialRectangle;whiteSpace=wrap;html=1;bottom=0;shadow=1;',
+        '',
+        'PEOPLE & ROLES:',
+        '  Person/User/Customer/Admin/Actor => shape=mxgraph.flowchart.reference_shape;whiteSpace=wrap;html=1;shadow=1;',
+        '  Team/Group/Department => rounded=1;whiteSpace=wrap;html=1;shadow=1;fillColor=#e1d5e7;strokeColor=#9673a6;',
+        '',
+        'DATA & DOCUMENTS:',
+        '  Document/File/Report/PDF => shape=document;whiteSpace=wrap;html=1;shadow=1;',
+        '  Input/Output/Data => shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;shadow=1;',
+        '  Manual Input => shape=mxgraph.flowchart.manual_input;whiteSpace=wrap;html=1;shadow=1;',
+        '',
+        'LAYERS & GROUPS:',
+        '  Container/Swimlane => shape=swimlane;whiteSpace=wrap;html=1;shadow=1;startSize=30;',
+        '',
+        '=== STYLE PROPERTIES ===',
+        'Common style properties (semicolon-separated):',
+        '  fillColor=#HEX - background color',
+        '  strokeColor=#HEX - border color',
+        '  fontColor=#HEX - text color',
+        '  fontSize=13 - text size',
+        '  fontStyle=1 - bold, fontStyle=2 - italic, fontStyle=4 - underline',
+        '  strokeWidth=2 - border thickness',
+        '  shadow=1 - drop shadow (ALWAYS USE THIS)',
+        '  rounded=1 - rounded corners',
+        '  arcSize=20 - corner roundness',
+        '  whiteSpace=wrap - text wrapping',
+        '  html=1 - allow HTML in labels',
+        '  align=center - horizontal text alignment',
+        '  verticalAlign=middle - vertical text alignment',
+        '  spacingLeft=8 - inner padding',
+        '',
+        '=== PROFESSIONAL COLOR PALETTE ===',
+        'Blue: fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1e3a5f;',
+        'Green: fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#1a4d2e;',
+        'Orange: fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#7a5c00;',
+        'Red: fillColor=#f8cecc;strokeColor=#b85450;fontColor=#6b1c1c;',
+        'Purple: fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#4a2d6b;',
+        'Teal: fillColor=#d5e8d4;strokeColor=#009688;fontColor=#004d40;',
+        'Gray: fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;',
+        '',
+        '=== SPACING & LAYOUT ===',
+        '- Minimum 250px horizontal, 150px vertical between elements',
+        '- Shapes must NOT overlap each other or edges',
+        '- Center diagram around x=580 (middle of 1169px page)',
+        '- Row 1: y=40, Row 2: y=180, Row 3: y=320, Row 4: y=520',
+        '- Column 1: x=200, Column 2: x=425, Column 3: x=680',
+        '- Each shape should have clear, readable text',
+        '- Use fontStyle=1 (bold) for Start/End and Decision nodes',
+        '',
+        '=== COORDINATE SYSTEM ===',
+        'CRITICAL: The canvas is 1169px wide x 827px tall.',
+        'Place ALL shapes between x=150..900, y=40..700.',
+        'Center column is x=580. Use this as your reference.',
+        'DO NOT place anything at x<100 or x>900 or y<40 or y>700.',
+    ].join('\n');
+
+    function waitForDraw() {
+        if (typeof Draw !== 'undefined' && typeof Draw.loadPlugin === 'function') {
+            registerPlugin();
+        } else {
+            setTimeout(waitForDraw, 200);
+        }
+    }
+
+    function registerPlugin() {
+        Draw.loadPlugin(function(ui) {
+            var graph = ui.editor.graph;
+
+            // Theme detection using draw.io's actual API
+            function detectAndApplyTheme() {
+                var isDark = Editor.isDarkMode();
+                applyTheme(isDark);
+            }
+            detectAndApplyTheme();
+            ui.addListener('darkModeChanged', detectAndApplyTheme);
+
+            function injectBranding() {
+                // Branding logo at center of menubar
+                if (!document.getElementById('karetum-logo')) {
+                    var menubar = document.body.children[3] && document.body.children[3].children[0];
+                    if (menubar) {
+                        var logo = document.createElement('div');
+                        logo.id = 'karetum-logo';
+                        logo.innerHTML = '<svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="karetum-menu-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#6e8efb"/><stop offset="40%" stop-color="#a777e3"/><stop offset="100%" stop-color="#e684ae"/></linearGradient></defs><path d="M50 5 L62 38 L95 50 L62 62 L50 95 L38 62 L5 50 L38 38 Z" fill="url(#karetum-menu-grad)"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="8s" repeatCount="indefinite"/></path><path d="M50 20 L57 43 L80 50 L57 57 L50 80 L43 57 L20 50 L43 43 Z" fill="rgba(255,255,255,0.25)"/></svg>';
+                        logo.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;pointer-events:none;opacity:0.7;';
+                        menubar.style.position = 'relative';
+                        menubar.appendChild(logo);
+                    }
+                }
+            }
+            // Retry until draw.io DOM is ready (up to 30 attempts, 500ms apart)
+            var brandingAttempts = 0;
+            var brandingInterval = setInterval(function() {
+                injectBranding();
+                brandingAttempts++;
+                if (brandingAttempts >= 30) clearInterval(brandingInterval);
+            }, 500);
+
+            function getXml() {
+                try { return mxUtils.getXml(ui.editor.getGraphXml()); }
+                catch(e) { return null; }
+            }
+
+            function sanitizeXml(xml) {
+                // Fix unescaped < > in value attributes
+                return xml.replace(/value="([^"]*)"/g, function(match, val) {
+                    // Don't double-encode already encoded entities
+                    var fixed = val
+                        .replace(/&(?!(amp|lt|gt|apos|quot);)/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                    return 'value="' + fixed + '"';
+                });
+            }
+
+            function applyXml(xmlString) {
+                try {
+                    xmlString = sanitizeXml(xmlString);
+                    var doc = mxUtils.parseXml(xmlString);
+                    ui.editor.setGraphXml(doc.documentElement);
+                    graph.fit();
+                    graph.center();
+                    return true;
+                } catch(e) {
+                    console.error('Apply error:', e, xmlString.substring(0, 500));
+                    addMessage('Apply error: ' + e.message, 'bot');
+                    return false;
+                }
+            }
+
+            function escapeHtml(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+            function addMessage(text, type) {
+                var m = document.createElement('div');
+                m.className = 'karetum-msg ' + type;
+                m.textContent = text;
+                document.getElementById('karetum-chat-messages').appendChild(m);
+                m.parentNode.scrollTop = m.parentNode.scrollHeight;
+                return m;
+            }
+
+            function showTyping() {
+                var m = document.createElement('div');
+                m.id = 'karetum-typing';
+                m.className = 'karetum-msg bot thinking';
+                m.innerHTML = '<div class="karetum-dots"><div class="karetum-dot"></div><div class="karetum-dot"></div><div class="karetum-dot"></div></div>';
+                document.getElementById('karetum-chat-messages').appendChild(m);
+                m.parentNode.scrollTop = m.parentNode.scrollHeight;
+            }
+
+            function hideTyping() { var t = document.getElementById('karetum-typing'); if (t) t.remove(); }
+
+            function extractXml(text) {
+                var cleaned = text.replace(/```(?:xml|drawio)?\s*\n?/gi, '').replace(/```\s*$/gm, '');
+                var m = cleaned.match(/<mxGraphModel[\s\S]*?<\/mxGraphModel>/i);
+                if (m) return m[0];
+                var m2 = cleaned.match(/<mxGraphModel[\s\S]*/i);
+                if (m2) {
+                    var xml = m2[0];
+                    var openRoot = (xml.match(/<mxGraphModel/gi) || []).length;
+                    var closeRoot = (xml.match(/<\/mxGraphModel>/gi) || []).length;
+                    var openRoot2 = (xml.match(/<root>/gi) || []).length;
+                    var closeRoot2 = (xml.match(/<\/root>/gi) || []).length;
+                    var openCell = (xml.match(/<mxCell[\s\/]/gi) || []).length;
+                    var closeCell = (xml.match(/<\/mxCell>/gi) || []).length;
+                    var selfClose = (xml.match(/\/>/g) || []).length;
+                    var unclosed = openCell - closeCell - selfClose;
+                    for (var i = 0; i < unclosed; i++) xml += '</mxCell>';
+                    if (closeRoot2 < openRoot2) xml += '</root>';
+                    if (closeRoot < openRoot) xml += '</mxGraphModel>';
+                    return xml;
+                }
+                return null;
+            }
+
+            async function callOllama(prompt, currentXml) {
+                var ollamaPrompt = 'You generate draw.io diagrams. Rules:\n';
+                ollamaPrompt += '- Return ONLY valid draw.io XML in <mxGraphModel> format\n';
+                ollamaPrompt += '- IMPORTANT: Every shape mxCell MUST have vertex="1" attribute\n';
+                ollamaPrompt += '- IMPORTANT: Every arrow mxCell MUST have edge="1" attribute with source and target\n';
+                ollamaPrompt += '- Use orthogonalEdgeStyle for edge routing\n';
+                ollamaPrompt += '- Place shapes between x=150..850, y=40..600, centered around x=500\n';
+                ollamaPrompt += '- Use shadow=1, arcSize=20, fontSize=13 on shapes\n';
+                ollamaPrompt += '- Use fontStyle=1 (bold) for Start/End and Decision nodes\n';
+                ollamaPrompt += '- Min 250px horizontal, 150px vertical spacing between elements\n';
+                ollamaPrompt += '- Start at top, flow downward, end at bottom\n';
+                ollamaPrompt += '\n';
+                ollamaPrompt += 'Example mxCell for a shape:\n';
+                ollamaPrompt += '<mxCell id="2" value="Start" style="rounded;shadow=1;arcSize=20;fontSize=13;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="400" y="40" width="120" height="40" as="geometry"/></mxCell>\n';
+                ollamaPrompt += 'Example mxCell for an edge:\n';
+                ollamaPrompt += '<mxCell id="10" style="orthogonalEdgeStyle;" edge="1" source="2" target="3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>\n';
+                ollamaPrompt += '\n';
+                if (currentXml) {
+                    ollamaPrompt += '=== CURRENT DIAGRAM XML ===\n' + currentXml.substring(0, 2000) + '\n\n';
+                }
+                ollamaPrompt += '=== USER REQUEST ===\n' + prompt + '\n\n';
+                ollamaPrompt += 'Generate the draw.io XML below:';
+                var response = await fetch('/api/ollama', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: config.ollamaUrl,
+                        model: config.ollamaModel,
+                        prompt: ollamaPrompt
+                    })
+                });
+                if (!response.ok) throw new Error('Ollama failed: ' + response.status);
+                var data = await response.json();
+                if (data.error) throw new Error(data.error);
+                return data.response;
+            }
+
+            async function callGemini(prompt, currentXml) {
+                var fullPrompt = SYSTEM_PROMPT + '\n\n';
+                fullPrompt += '=== CURRENT DIAGRAM (canvas XML) ===\n';
+                fullPrompt += currentXml || '(empty - create new diagram)';
+                fullPrompt += '\n\n=== USER REQUEST ===\n' + prompt;
+                fullPrompt += '\n\nGenerate the updated/new draw.io XML below:';
+                var response = await fetch('/api/gemini', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: config.geminiModel,
+                        apiKey: config.geminiApiKey || '',
+                        payload: {
+                            contents: [{ parts: [{ text: fullPrompt }] }],
+                            generationConfig: { temperature: 0.3, maxOutputTokens: 65536 }
+                        }
+                    })
+                });
+                if (!response.ok) { var err = await response.json(); throw new Error(err.error || 'Gemini failed'); }
+                var data = await response.json();
+                if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
+                    return data.candidates[0].content.parts[0].text;
+                }
+                throw new Error('No response from Gemini. Check prompt/content safety.');
+            }
+
+            async function callOpenAI(prompt, currentXml) {
+                var fullPrompt = SYSTEM_PROMPT + '\n\n';
+                fullPrompt += '=== CURRENT DIAGRAM (canvas XML) ===\n';
+                fullPrompt += currentXml || '(empty - create new diagram)';
+                fullPrompt += '\n\n=== USER REQUEST ===\n' + prompt;
+                fullPrompt += '\n\nGenerate the updated/new draw.io XML below:';
+                var response = await fetch('/api/openai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: config.openaiModel,
+                        apiKey: config.openaiApiKey || '',
+                        prompt: fullPrompt
+                    })
+                });
+                if (!response.ok) { var err = await response.json(); throw new Error(err.error || 'OpenAI failed'); }
+                var data = await response.json();
+                if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+                    return data.choices[0].message.content;
+                }
+                throw new Error('No response from OpenAI. Check API key and model.');
+            }
+
+            async function callClaude(prompt, currentXml) {
+                var fullPrompt = SYSTEM_PROMPT + '\n\n';
+                fullPrompt += '=== CURRENT DIAGRAM (canvas XML) ===\n';
+                fullPrompt += currentXml || '(empty - create new diagram)';
+                fullPrompt += '\n\n=== USER REQUEST ===\n' + prompt;
+                fullPrompt += '\n\nGenerate the updated/new draw.io XML below:';
+                var response = await fetch('/api/anthropic', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: config.anthropicModel,
+                        apiKey: config.anthropicApiKey || '',
+                        prompt: fullPrompt
+                    })
+                });
+                if (!response.ok) { var err = await response.json(); throw new Error(err.error || 'Anthropic failed'); }
+                var data = await response.json();
+                if (data.content && data.content[0] && data.content[0].text) {
+                    return data.content[0].text;
+                }
+                throw new Error('No response from Anthropic. Check API key and model.');
+            }
+
+            async function callCustomEndpoint(prompt, currentXml) {
+                var fullPrompt = SYSTEM_PROMPT;
+                if (currentXml) {
+                    fullPrompt += '\n\n=== CURRENT DIAGRAM XML (modify this) ===\n' + currentXml.substring(0, 4000);
+                }
+                fullPrompt += '\n\n=== USER REQUEST ===\n' + prompt;
+                fullPrompt += '\n\nGenerate the updated/new draw.io XML below:';
+                var response = await fetch('/api/custom', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        endpoint: config.customEndpoint,
+                        apiKey: config.customApiKey,
+                        model: config.customModel,
+                        prompt: fullPrompt
+                    })
+                });
+                if (!response.ok) { var err = await response.json(); throw new Error(err.error || 'Custom endpoint failed'); }
+                var data = await response.json();
+                if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+                    return data.choices[0].message.content;
+                }
+                throw new Error('No response from custom endpoint. Check URL, API key, and model.');
+            }
+
+            async function callAI(prompt, currentXml) {
+                if (config.provider === 'ollama') return await callOllama(prompt, currentXml);
+                if (config.provider === 'openai') return await callOpenAI(prompt, currentXml);
+                if (config.provider === 'anthropic') return await callClaude(prompt, currentXml);
+                if (config.provider === 'custom') return await callCustomEndpoint(prompt, currentXml);
+                return await callGemini(prompt, currentXml);
+            }
+
+            function addSuccessMessage(text, suggestions) {
+                var m = document.createElement('div');
+                m.className = 'karetum-msg bot';
+                var html = '<div>' + escapeHtml(text) + '</div>';
+                if (suggestions && suggestions.length > 0) {
+                    html += '<div class="karetum-tags" style="margin-top:10px;text-align:left">';
+                    for (var i = 0; i < suggestions.length; i++) {
+                        html += '<button class="karetum-tag" data-prompt="' + escapeHtml(suggestions[i]) + '">' + escapeHtml(suggestions[i]) + '</button>';
+                    }
+                    html += '</div>';
+                }
+                m.innerHTML = html;
+                document.getElementById('karetum-chat-messages').appendChild(m);
+                m.parentNode.scrollTop = m.parentNode.scrollHeight;
+            }
+
+            var SUGGESTIONS = {
+                'flowchart': ['Add swimlanes', 'Add error handling branches', 'Change colors to blue theme'],
+                'sequence': ['Add authentication step', 'Add error handling', 'Add retry logic'],
+                'network': ['Add load balancer', 'Add firewall', 'Add monitoring server'],
+                'er': ['Add junction table', 'Add audit fields', 'Show primary keys'],
+                'medallion': ['Add quality checks', 'Add streaming path', 'Add metadata catalog'],
+                'uml': ['Add interfaces', 'Add dependencies', 'Add packages'],
+                'mindmap': ['Color code categories', 'Add priority icons', 'Expand sub-topics'],
+                'org': ['Add departments', 'Add reporting lines', 'Add role descriptions']
+            };
+
+            function getSuggestions(prompt) {
+                var lower = prompt.toLowerCase();
+                for (var key in SUGGESTIONS) {
+                    if (lower.indexOf(key) >= 0) return SUGGESTIONS[key];
+                }
+                return ['Modify this diagram', 'Add more details', 'Change the color theme'];
+            }
+
+            async function sendMessage() {
+                var input = document.getElementById('karetum-input');
+                var prompt = input.value.trim();
+                if (!prompt) return;
+                addMessage(prompt, 'user');
+                input.value = '';
+                showTyping();
+                try {
+                    var currentXml = getXml() || '';
+                    var promptLower = prompt.toLowerCase();
+                    var isComplex = /architecture|microservice|deploy|full|complete|all|complex|advanced/.test(promptLower);
+
+                    if (isComplex && currentXml) {
+                        addMessage('Analyzing current diagram...', 'bot');
+                        var analysisPrompt = 'Describe what exists in this diagram briefly:\n' + currentXml.substring(0, 2000) + '\n\nUser wants: ' + prompt + '\n\nList what needs to be ADDED (not what exists). Be brief.';
+                        await callAI(analysisPrompt, currentXml);
+                    }
+
+                    var response = await callAI(prompt, currentXml);
+                    hideTyping();
+                    var xml = extractXml(response);
+                    var text = response.replace(/<mxGraphModel[\s\S]*?<\/mxGraphModel>/gi, '').replace(/```[\s\S]*?```/g, '').trim();
+                    if (xml) {
+                        var shapeCount = (xml.match(/vertex="1"/g) || []).length;
+                        if (shapeCount === 0) {
+                            addMessage('The AI generated an empty diagram with no shapes. Please try again with more detail.', 'bot');
+                        } else {
+                            var applied = applyXml(xml);
+                            if (applied) {
+                                addSuccessMessage(text || 'Diagram applied to the canvas (' + shapeCount + ' shapes).', getSuggestions(prompt));
+                            }
+                        }
+                    } else {
+                        addMessage(text || 'No diagram was generated. Please try again.', 'bot');
+                    }
+                } catch(e) {
+                    hideTyping();
+                    addMessage('Error: ' + e.message, 'bot');
+                }
+            }
+
+            function toggleChat() {
+                var p = document.getElementById('karetum-chat-panel');
+                var b = document.getElementById('karetum-floating-btn');
+                var isOpen = p.classList.contains('visible');
+                if (isOpen) {
+                    p.classList.remove('visible');
+                    b.classList.remove('hidden');
+                } else {
+                    p.classList.add('visible');
+                    b.classList.add('hidden');
+                }
+            }
+
+            document.getElementById('karetum-close-btn').onclick = toggleChat;
+            document.getElementById('karetum-send-btn').onclick = sendMessage;
+            document.getElementById('karetum-input').onkeydown = function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+            };
+            btn.onclick = toggleChat;
+
+            document.getElementById('karetum-chat-messages').onclick = function(e) {
+                if (e.target.classList.contains('karetum-tag')) {
+                    document.getElementById('karetum-input').value = e.target.getAttribute('data-prompt');
+                    sendMessage();
+                }
+            };
+
+            document.getElementById('karetum-export-xml').onclick = function() {
+                var xml = getXml();
+                if (xml) {
+                    var blob = new Blob([xml], { type: 'application/xml' });
+                    var a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'karetum-design.drawio';
+                    a.click();
+                }
+            };
+
+            document.getElementById('karetum-clear-btn').onclick = function() {
+                document.getElementById('karetum-chat-messages').innerHTML = '<div class="karetum-welcome"><h3>Welcome to KareTum Diagram</h3><p>Describe the diagram you want, and AI will create it.</p></div>';
+            };
+
+            btn.classList.remove('hidden');
+            setTimeout(toggleChat, 2000);
+            ui.actions.put('karetumChat', { label: 'KareTum Diagram AI', enabled: true, fn: toggleChat });
+        });
+    }
+
+    waitForDraw();
+})();
+</script>
+<div id="karetum-footer" style="position:fixed;bottom:0;left:0;right:0;background:#1a1a1a;color:#999;text-align:center;padding:4px;font-size:11px;z-index:49;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
+    <a href="about.html" style="color:#aaa;margin:0 10px;text-decoration:none;">About</a>
+    <a href="privacy.html" style="color:#aaa;margin:0 10px;text-decoration:none;">Privacy</a>
+    <a href="terms.html" style="color:#aaa;margin:0 10px;text-decoration:none;">Terms</a>
+    <a href="https://github.com/muniandibaskaran" target="_blank" rel="noopener" style="color:#aaa;margin:0 10px;text-decoration:none;">GitHub</a>
+    <a href="https://www.linkedin.com/in/muniandi-baskaran/" target="_blank" rel="noopener" style="color:#aaa;margin:0 10px;text-decoration:none;">LinkedIn</a>
+    <a href="https://medium.com/@muniandibaskaran" target="_blank" rel="noopener" style="color:#aaa;margin:0 10px;text-decoration:none;">Medium</a>
+    <span style="color:#666;margin-left:10px;">&copy; 2026 KareTum Diagram &middot; Muniandi Baskaran</span>
+</div>
+<div id="karetum-cookie-consent" style="display:none;position:fixed;bottom:40px;left:0;right:0;background:#1a1a1a;color:#ccc;padding:12px 20px;text-align:center;font-size:13px;z-index:9999;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
+    We use your browser's local storage to remember your settings. No tracking or advertising cookies are used.
+    <a href="privacy.html" style="color:#0078d4;margin:0 8px;">Learn More</a>
+    <button onclick="document.getElementById('karetum-cookie-consent').style.display='none';localStorage.setItem('karetum-cookie-accepted','1');" style="background:#0078d4;color:#fff;border:none;padding:5px 16px;border-radius:4px;cursor:pointer;margin-left:8px;">OK</button>
+</div>
+<script>
+if (!localStorage.getItem('karetum-cookie-accepted')) {
+    document.getElementById('karetum-cookie-consent').style.display = 'block';
+}
+</script>
+</body>
+</html>

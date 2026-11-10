@@ -1,0 +1,10 @@
+# Exclude secrets and build artifacts from Docker context
+.env
+.env.*
+!.env.example
+node_modules
+.git
+build
+classes
+bin
+*.log

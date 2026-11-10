@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  karetum-diagram:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: karetum-diagram
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    # Provide API keys via environment variables (preferred) ...
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_API_KEYS=${GEMINI_API_KEYS:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - PORT=8080
+    # ... or mount a local .env file and let server.js read it:
+    # volumes:
+    #   - ./src/main/webapp/.env:/app/.env:ro
+
+# Create a project-root .env with your keys (gitignored) to feed the variables above.
